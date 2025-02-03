@@ -8,60 +8,61 @@ st.set_page_config(page_title="Name Grid Generator")
 # Title
 st.title("Name Grid Generator")
 
-# Initialize session state for names and occurrences
-if 'names' not in st.session_state:
-    st.session_state.names = []
-    st.session_state.occurrences = []
+# Initialize session state for input data
+if 'input_data' not in st.session_state:
+    st.session_state.input_data = pd.DataFrame({'Name': ["Person's Name"], 'Occurrences': [1]})
 
 # Sidebar for input and editing
-st.sidebar.header("Enter and Edit Names")
+st.sidebar.header("Enter Names and Occurrences")
 
-# Input for new name and occurrence
-new_name = st.sidebar.text_input("Enter a name:")
-new_occurrence = st.sidebar.number_input("Enter number of occurrences:", min_value=1, max_value=100, value=1, step=1)
+# Function to clear all names and restore default
+def clear_all_names():
+    st.session_state.input_data = pd.DataFrame({'Name': ["Person's Name"], 'Occurrences': [1]})
 
-# Add button
-if st.sidebar.button("Add Name"):
-    st.session_state.names.append(new_name)
-    st.session_state.occurrences.append(new_occurrence)
-
-# Edit existing names and occurrences
-st.sidebar.subheader("Edit Names and Occurrences:")
-
-# Add headers
-col1, col2, col3 = st.sidebar.columns([3, 1, 1])
-col1.write("Name")
-col2.write("Occurrences")
-col3.write("Delete?")
-
-for i, (name, occurrence) in enumerate(zip(st.session_state.names, st.session_state.occurrences)):
-    col1, col2, col3 = st.sidebar.columns([3, 1, 1])
-    
-    with col1:
-        new_name = st.text_input(f"Name", value=name, key=f"name_{i}", label_visibility="collapsed")
-    with col2:
-        new_occurrence = st.number_input(f"Occurrences", min_value=1, max_value=100, value=occurrence, key=f"occurrence_{i}", step=1, label_visibility="collapsed")
-    with col3:
-        if st.button("Delete", key=f"delete_{i}"):
-            del st.session_state.names[i]
-            del st.session_state.occurrences[i]
-            st.rerun()
-    
-    st.session_state.names[i] = new_name
-    st.session_state.occurrences[i] = new_occurrence
+# Display editable DataFrame
+edited_df = st.sidebar.data_editor(
+    st.session_state.input_data,
+    num_rows="dynamic",
+    column_config={
+        "Name": st.column_config.TextColumn(
+            "Name",
+            help="Enter the name",
+            max_chars=50,
+            default="Person's Name",
+        ),
+        "Occurrences": st.column_config.NumberColumn(
+            "Occurrences",
+            help="Enter the number of occurrences",
+            min_value=1,
+            max_value=100,
+            step=1,
+            default=1,
+        ),
+    },
+    hide_index=True,
+)
 
 # Clear button
 if st.sidebar.button("Clear All Names"):
-    st.session_state.names = []
-    st.session_state.occurrences = []
+    clear_all_names()
     st.rerun()
 
 # Generate grid button
 if st.button("Generate Grid"):
+    # Update the session state with the edited data
+    st.session_state.input_data = edited_df
+
     # Create a list with names repeated according to their occurrences
     name_list = []
-    for name, occurrence in zip(st.session_state.names, st.session_state.occurrences):
-        name_list.extend([name] * occurrence)
+    for _, row in edited_df.iterrows():
+        name = row['Name']
+        occurrence = row['Occurrences']
+        if pd.notna(name) and pd.notna(occurrence):
+            try:
+                occurrence = int(occurrence)
+                name_list.extend([name] * occurrence)
+            except ValueError:
+                st.warning(f"Invalid occurrence value for {name}. Skipping this entry.")
     
     # Fill the remaining spots with blanks
     name_list.extend([''] * (100 - len(name_list)))
@@ -74,16 +75,15 @@ if st.button("Generate Grid"):
     
     # Display the grid using a DataFrame
     df = pd.DataFrame(grid)
-    st.dataframe(df.style.set_properties(**{'text-align': 'center'}))
+    st.dataframe(df.style.set_properties(**{'text-align': 'center'}), hide_index=True)
 
 # Instructions
 st.markdown("""
 ## Instructions:
-1. Enter a name and the number of times it should appear in the sidebar.
-2. Click 'Add Name' to add it to the list.
-3. Edit existing names and occurrences directly in the sidebar.
-4. Use the plus/minus buttons or type to adjust occurrences.
-5. Use the 'Delete' button to remove a name from the list.
-6. Click 'Generate Grid' to create and display the 10x10 grid.
-7. Use 'Clear All Names' to start over.
+1. In the sidebar, enter names and their occurrences in the table.
+2. You can copy and paste data directly into the table.
+3. Click 'Generate Grid' to create and display the 10x10 grid based on your input.
+4. Use 'Clear All Names' to start over with the default entry.
+
+Note: The 'Occurrences' column should contain integer values between 1 and 100.
 """)
